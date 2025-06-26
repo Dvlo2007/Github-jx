@@ -1,1 +1,11 @@
-appname="GitHub链接转换"
+appname="Github链接转换"
+appver="1.1"
+appsdk="15"
+packagename="com.dvlo.github.urlconverter"
+developer="Dvlo"
+description=""
+debugmode=true
+user_permission={
+  "INTERNET",
+  "WRITE_EXTERNAL_STORAGE"
+}

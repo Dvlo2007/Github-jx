@@ -3,142 +3,191 @@ import "android.content.*"
 import "android.widget.*"
 import "android.view.*"
 
--- 创建主布局
-local layout = LinearLayout(activity)
-layout.setOrientation(1)
-layout.setPadding(20, 20, 20, 20)
+-- 主布局
+activity.setContentView(loadlayout{
+    LinearLayout;
+    orientation="vertical";
+    padding="20dp";
+    layout_width="fill";
+    layout_height="fill";
 
--- 标题
-local title = TextView(activity)
-title.setText("GitHub链接转换工具")
-title.setTextSize(20)
-title.setGravity(Gravity.CENTER)
-title.setTextColor(0xFF000000)
-layout.addView(title)
+    -- 网页链接文字（天蓝色）
+    {
+        TextView;
+        text="网页链接";
+        textSize="16sp";
+        textColor="#00BFFF"; -- 天蓝色
+        paddingBottom="5dp";
+        layout_width="fill";
+    };
 
--- 输入框
-local inputLayout = LinearLayout(activity)
-inputLayout.setOrientation(1)
-inputLayout.setPadding(0, 30, 0, 10)
+    -- 输入框 + 按钮（同一行）
+    {
+        LinearLayout;
+        orientation="horizontal";
+        layout_width="fill";
+        layout_height="wrap";
 
-local inputLabel = TextView(activity)
-inputLabel.setText("输入GitHub链接:")
-inputLayout.addView(inputLabel)
+        {
+            EditText;
+            id="input";
+            hint="https://github.com/User/Reposi";
+            singleLine=true;
+            layout_weight="1"; -- 自动扩展宽度
+            layout_width="0dp";
+        };
 
-local input = EditText(activity)
-input.setHint("例如: https://github.com/user/repo/blob/main/file.txt")
-input.setSingleLine(true)
-inputLayout.addView(input)
+        {
+            Button;
+            text="清空并粘贴";
+            id="pasteBtn";
+            layout_width="wrap";
+        };
+    };
 
-layout.addView(inputLayout)
+    -- 转换选项（单选按钮）
+    {
+        RadioGroup;
+        orientation="horizontal";
+        gravity="center";
+        paddingTop="20dp";
+        paddingBottom="20dp";
 
--- 按钮布局
-local buttonLayout = LinearLayout(activity)
-buttonLayout.setOrientation(0)
-buttonLayout.setGravity(Gravity.CENTER)
+        {
+            RadioButton;
+            text="kGiHub";
+            id="kGiHubRadio";
+            paddingLeft="20dp";
+            paddingRight="20dp";
+            checked=true; -- 默认选中
+        };
 
-local rawBtn = Button(activity)
-rawBtn.setText("转Raw链接")
-buttonLayout.addView(rawBtn)
+        {
+            RadioButton;
+            text="jsDelivr";
+            id="jsDelivrRadio";
+            paddingLeft="20dp";
+            paddingRight="20dp";
+        };
 
-local downloadBtn = Button(activity)
-downloadBtn.setText("转下载链接")
-buttonLayout.addView(downloadBtn)
+        {
+            RadioButton;
+            text="Proxy";
+            id="proxyRadio";
+            paddingLeft="5dp";
+            paddingRight="5dp";
+        };
+    };
 
-layout.addView(buttonLayout)
+    -- 操作按钮（同一行）
+    {
+        LinearLayout;
+        orientation="horizontal";
+        gravity="center";
+        paddingTop="20dp";
 
--- 结果布局
-local resultLayout = LinearLayout(activity)
-resultLayout.setOrientation(1)
-resultLayout.setPadding(0, 30, 0, 0)
+        {
+            Button;
+            text="开始转换";
+            id="convertBtn";
+        };
 
-local resultLabel = TextView(activity)
-resultLabel.setText("转换结果:")
-resultLayout.addView(resultLabel)
+        {
+            Button;
+            text="转换并打开";
+            id="convertAndOpenBtn";
+        };
 
-local result = EditText(activity)
-result.setSingleLine(true)
-result.setFocusable(false)
-resultLayout.addView(result)
-
-local copyBtn = Button(activity)
-copyBtn.setText("复制结果")
-resultLayout.addView(copyBtn)
-
-layout.addView(resultLayout)
-
--- 设置主视图
-activity.setContentView(layout)
-
--- 创建菜单
-function onCreateOptionsMenu(menu)
-    menu.add("设置")
-    return true
-end
-
-function onOptionsItemSelected(item)
-    if item.title == "设置" then
-        activity.newActivity("settings")
-    end
-    return true
-end
+        {
+            Button;
+            text="转换并分享";
+            id="convertAndShareBtn";
+        };
+    };
+})
 
 -- 转换函数
-local function convertUrl(url, mode)
+function convertUrl(url, mode)
+    if not url or url == "" then
+        return nil, "请输入GitHub链接"
+    end
+    
     if not url:match("^https?://github%.com/.+") then
         return nil, "无效的GitHub链接"
     end
     
     url = url:gsub("#.*$", ""):gsub("%?.*$", "")
     
-    if mode == "raw" then
+    if mode == "kGiHub" then
         return url:gsub("github%.com", "raw.githubusercontent.com"):gsub("/blob/", "/")
-    elseif mode == "download" then
-        return url:gsub("/blob/", "/raw/")
+    elseif mode == "jsDelivr" then
+        return url:gsub("github%.com", "cdn.jsdelivr.net/gh"):gsub("/blob/", "/")
+    elseif mode == "proxy" then
+        return url:gsub("github%.com", "ghproxy.com/https://github.com")
     else
         return nil, "未知的转换模式"
     end
 end
 
--- 按钮事件
-rawBtn.onClick = function()
-    local url = input.getText().toString()
-    if url == "" then
-        Toast.makeText(activity, "请输入GitHub链接", Toast.LENGTH_SHORT).show()
-        return
+-- 清空并粘贴按钮事件
+pasteBtn.onClick = function()
+    input.setText("")
+    local clipboard = activity.getSystemService(Context.CLIPBOARD_SERVICE)
+    if clipboard.hasPrimaryClip() then
+        local item = clipboard.getPrimaryClip().getItemAt(0)
+        input.setText(item.getText())
+    else
+        Toast.makeText(activity, "剪贴板为空", Toast.LENGTH_SHORT).show()
     end
+end
+
+-- 开始转换按钮事件
+convertBtn.onClick = function()
+    local url = input.getText().toString()
+    local mode = kGiHubRadio.isChecked() and "kGiHub" 
+              or jsDelivrRadio.isChecked() and "jsDelivr" 
+              or "proxy"
     
-    local converted, err = convertUrl(url, "raw")
+    local converted, err = convertUrl(url, mode)
     if converted then
-        result.setText(converted)
+        input.setText(converted)
+        Toast.makeText(activity, "转换成功", Toast.LENGTH_SHORT).show()
     else
         Toast.makeText(activity, err, Toast.LENGTH_SHORT).show()
     end
 end
 
-downloadBtn.onClick = function()
+-- 转换并打开按钮事件
+convertAndOpenBtn.onClick = function()
     local url = input.getText().toString()
-    if url == "" then
-        Toast.makeText(activity, "请输入GitHub链接", Toast.LENGTH_SHORT).show()
-        return
-    end
+    local mode = kGiHubRadio.isChecked() and "kGiHub" 
+              or jsDelivrRadio.isChecked() and "jsDelivr" 
+              or "proxy"
     
-    local converted, err = convertUrl(url, "download")
+    local converted, err = convertUrl(url, mode)
     if converted then
-        result.setText(converted)
+        input.setText(converted)
+        activity.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(converted)))
     else
         Toast.makeText(activity, err, Toast.LENGTH_SHORT).show()
     end
 end
 
-copyBtn.onClick = function()
-    local text = result.getText().toString()
-    if text ~= "" then
-        local clipboard = activity.getSystemService(Context.CLIPBOARD_SERVICE)
-        local clip = ClipData.newPlainText("GitHub链接", text)
-        clipboard.setPrimaryClip(clip)
-        Toast.makeText(activity, "已复制到剪贴板", Toast.LENGTH_SHORT).show()
+-- 转换并分享按钮事件
+convertAndShareBtn.onClick = function()
+    local url = input.getText().toString()
+    local mode = kGiHubRadio.isChecked() and "kGiHub" 
+              or jsDelivrRadio.isChecked() and "jsDelivr" 
+              or "proxy"
+    
+    local converted, err = convertUrl(url, mode)
+    if converted then
+        input.setText(converted)
+        local intent = Intent(Intent.ACTION_SEND)
+        intent.setType("text/plain")
+        intent.putExtra(Intent.EXTRA_TEXT, converted)
+        activity.startActivity(Intent.createChooser(intent, "分享链接"))
     else
-        Toast.makeText(activity, "没有可复制的内容", Toast.LENGTH_SHORT).show()
+        Toast.makeText(activity, err, Toast.LENGTH_SHORT).show()
     end
 end
